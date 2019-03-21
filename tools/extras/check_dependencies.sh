@@ -25,6 +25,7 @@ case $COMPILER_VER_INFO in
   "")
     echo "$0: $CXX is not installed."
     echo "$0: You need g++ >= 4.8.3, Apple Xcode >= 5.0 or clang >= 3.3."
+    add_packages gcc-c++ g++ gcc-c++
     status=1
     ;;
   "g++ "* )
@@ -65,7 +66,7 @@ if ! echo "#include <zlib.h>" | $CXX -E - >&/dev/null; then
   add_packages zlib-devel zlib1g-dev zlib-devel
 fi
 
-for f in make automake autoconf patch grep bzip2 gzip wget git sox; do
+for f in make automake autoconf patch grep bzip2 gzip unzip wget git sox; do
   if ! which $f >&/dev/null; then
     echo "$0: $f is not installed."
     add_packages $f $f $f
@@ -90,13 +91,13 @@ fi
 pythonok=true
 if ! which python2.7 >&/dev/null; then
   echo "$0: python2.7 is not installed"
-  add_packages python2.7
+  add_packages python2.7 python2.7
   pythonok=false
 fi
 
 if ! which python3 >&/dev/null; then
   echo "$0: python3 is not installed"
-  add_packages python3
+  add_packages python3 python3
   pythonok=false
 fi
 

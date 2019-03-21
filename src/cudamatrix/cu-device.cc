@@ -102,16 +102,27 @@ void CuDevice::Initialize() {
     if (!multi_threaded_) {
       multi_threaded_ = true;
       KALDI_WARN << "For multi-threaded code that might use GPU, you should call "
-          "CuDevice()::Instantiate().AllowMultithreading() at the start of "
+          "CuDevice::Instantiate().AllowMultithreading() at the start of "
           "the program.";
     }
     device_id_copy_ = device_id_;
     cudaSetDevice(device_id_);
     // Initialize CUBLAS.
     CUBLAS_SAFE_CALL(cublasCreate(&cublas_handle_));
+    CUBLAS_SAFE_CALL(cublasSetStream(cublas_handle_, cudaStreamPerThread));
+    
+    #if CUDA_VERSION >= 9000 
+    if (device_options_.use_tensor_cores) {
+      // Enable tensor cores in CUBLAS
+      // Note if the device does not support tensor cores this will fall back to normal math mode
+      CUBLAS_SAFE_CALL(cublasSetMathMode(cublas_handle_, 
+            CUBLAS_TENSOR_OP_MATH));
+    }
+    #endif
+
     // Initialize the cuSPARSE library
     CUSPARSE_SAFE_CALL(cusparseCreate(&cusparse_handle_));
-
+    CUSPARSE_SAFE_CALL(cusparseSetStream(cusparse_handle_, cudaStreamPerThread));
   }
 }
 
@@ -243,8 +254,10 @@ void CuDevice::FinalizeActiveGpu() {
                           // the main thread.
     // Initialize CUBLAS.
     CUBLAS_SAFE_CALL(cublasCreate(&cublas_handle_));
+    CUBLAS_SAFE_CALL(cublasSetStream(cublas_handle_, cudaStreamPerThread));
     // Initialize the cuSPARSE library
     CUSPARSE_SAFE_CALL(cusparseCreate(&cusparse_handle_));
+    CUSPARSE_SAFE_CALL(cusparseSetStream(cusparse_handle_, cudaStreamPerThread));
 
     // Notify the user which GPU is being userd.
     char name[128];
@@ -511,7 +524,6 @@ CuDevice::CuDevice():
     cusparse_handle_(NULL) {
 }
 
-
 CuDevice::~CuDevice() {
   if (cublas_handle_)
     CUBLAS_SAFE_CALL(cublasDestroy(cublas_handle_));
@@ -523,6 +535,8 @@ CuDevice::~CuDevice() {
 // Each thread has its own copy of the CuDevice object.
 // Note: this was declared "static".
 thread_local CuDevice CuDevice::this_thread_device_;
+  
+CuDevice::CuDeviceOptions CuDevice::device_options_;
 
 // define and initialize the static members of the CuDevice object.
 int32 CuDevice::device_id_ = -1;
